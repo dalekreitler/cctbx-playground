@@ -2,6 +2,8 @@ from iotbx import pdb
 from iotbx.reflection_file_reader import any_reflection_file
 from cctbx import xray
 from cctbx.xray import structure_factors
+from mmtbx.masks import masks
+import mmtbx.f_model as fm
 import argparse
 
 
@@ -43,7 +45,13 @@ class refinement:
 
 	f_obs = self.miller_arrays[0].map_to_asu()
 	flags = self.miller_arrays[4]
+	
+	
+
 	flags = flags.customized_copy(data=flags.data()=='f').map_to_asu()
+
+	
+
 	f_obs = f_obs.merge_equivalents().array()
 	f_obs = f_obs.generate_bijvoet_mates()
 	flags = flags.merge_equivalents().array()
@@ -52,9 +60,9 @@ class refinement:
 	'''common_sets() ensures miller arrays are sorted,
 	   are the same dimension, and have matching indices'''
 
-	self.f_obs, flags_plus_minus = f_obs.common_sets(other=flags_plus_minus)
-	self.f_obs_work = f_obs.select(~flags_plus_minus.data())
-	self.f_obs_test = f_obs.select(flags_plus_minus.data())
+	self.f_obs, self.flags_plus_minus = f_obs.common_sets(other=flags_plus_minus)
+	self.f_obs_work = f_obs.select(~self.flags_plus_minus.data())
+	self.f_obs_test = f_obs.select(self.flags_plus_minus.data())
 
 	return
 
@@ -74,6 +82,25 @@ class refinement:
 	
 	return
 
+    def generate_f_model_manager(self):
+		
+
+        f_model_manager = fm.manager(f_calc = self.f_calc,
+                                     f_obs = self.f_obs,
+				     r_free_flags = self.flags_plus_minus,
+				     xray_structure=self.xray_structure,
+				     target_name='ls')
+
+	f_model = f_model_manager.f_model()
+	
+	f_model_manager.update_solvent_and_scale()
+	f_model_manager.show()
+	
+	k = f_model_manager.k_masks()
+	print(dir(k))
+
+	return
+
 
     def output_pdb_file(self):
 
@@ -86,6 +113,6 @@ class refinement:
 
 refine = refinement()
 refine.generate_f_calc()
-
-refine.output_pdb_file()
+#refine.calculate_mask()
+refine.generate_f_model_manager()
 
